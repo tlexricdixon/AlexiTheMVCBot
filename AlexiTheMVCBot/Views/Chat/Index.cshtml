@@ -1,0 +1,92 @@
+﻿@model List<Standard.AI.OpenAI.Models.Services.Foundations.ChatCompletions.ChatCompletionMessage>
+@{
+    ViewData["Title"] = "Chat with Alexi";
+}
+<style>
+    img {
+        height: auto;
+        max-width: 100%;
+    }
+
+    #textArea {
+        width: 100%;
+        height: 200px;
+        font-size: 16px;
+    }
+
+    #startButton {
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+    }
+</style>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <h2>Chat with Alexi</h2>
+                <form method="post" aria-labelledby="chatForm">
+                    <label for="userInput">Your Message:</label>
+                    <textarea id="userInput" name="userInput" placeholder="Speak something..." rows="4" required aria-required="true"></textarea>
+                    <br />
+                    <button type="button" id="startButton" aria-label="Start speech recognition">Start Speech Recognition</button>
+                    <br />
+                    <button type="submit" aria-label="Send your message">Send</button>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <h4>Alexi:</h4>
+                <img src="~/img/androgynous-avatar-non-binary-queer-person.jpg" alt="Avatar of Alexi">
+                <div id="responseContainer">
+                    @if (Model != null)
+                    {
+                        <div>
+                            @foreach (var x in Model)
+                            {
+                                if (x.Content.Length < 1000)
+                                {
+                                    var m = x.Content.Split("User: ");
+                                    <p id="speakingClean">@Html.Raw(@m[0])</p>
+                                    <p id="speaking" hidden="hidden" contenteditable="true">@m[1]</p>
+                                }
+                                else if (x.Content.Length > 1000)
+                                {
+                                var m = x.Content.Split("User: ");
+                                    <p id="speakingClean">@Html.Raw(@m[0])</p>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+<script>
+    const startButton = document.getElementById('startButton');
+    const userInput = document.getElementById('userInput');
+
+    // Check if the browser supports speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+
+        // Set recognition properties (optional)
+        recognition.continuous = false; // Stop automatically after one phrase
+        recognition.interimResults = false; // Don't show interim results
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value += transcript; // Append the recognized text to the textarea
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+        };
+
+        startButton.addEventListener('click', () => {
+            recognition.start(); // Start speech recognition
+        });
+    } else {
+        startButton.disabled = true; // Disable button if not supported
+        alert('Speech recognition is not supported in your browser.');
+    }
+</script>

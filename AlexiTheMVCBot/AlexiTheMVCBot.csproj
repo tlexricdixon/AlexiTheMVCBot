@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>e2ac8a27-cf1f-4454-a33f-a4967f67be50</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Coinbase" Version="6.0.1" />
+    <PackageReference Include="JsonWebToken" Version="1.9.4" />
+    <PackageReference Include="Markdig" Version="0.37.0" />
+    <PackageReference Include="OpenAI" Version="1.11.0" />
+    <PackageReference Include="Standard.AI.OpenAI" Version="0.6.0" />
+    <PackageReference Include="TimeZoneConverter" Version="6.1.0" />
+  </ItemGroup>
+
+</Project>

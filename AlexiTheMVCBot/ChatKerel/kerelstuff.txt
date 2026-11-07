@@ -1,0 +1,68 @@
+﻿            var builder = Kernel.CreateBuilder();
+            builder.AddAzureOpenAIChatCompletion(
+                deploymentName: "alexii-gpt-35-turbo-16k",
+                endpoint: "https://tdev-open-ai.openai.azure.com/",
+                apiKey: "<AZURE_OPENAI_KEY>"
+            );
+            var kernel = builder.Build();
+            //Prompts the user for input
+            Console.WriteLine("Enter your career history: ");
+            var userInquiry = Console.ReadLine();
+            string prompt = @"This is some information about the user's background: {{$userInquiry}} 
+Given this users background, what are some potential questions that could be asked to learn more about them?";
+            var result = await kernel.InvokePromptAsync(prompt, new() {
+            {"userInput", userInquiry }
+        });
+            Console.WriteLine(result);
+        }
+        // Add plugins for time and conversation summary
+        //Conversaion examples.
+        //#pragma warning disable SKEXP0050 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        //        builder.Plugins.AddFromType<TimePlugin>();
+        //        builder.Plugins.AddFromType<ConversationSummaryPlugin>();
+
+        //        // Build the kernel
+        //        var kernel = builder.Build();
+
+        //        // Get current date and time information
+        //        var currentDateTime = await kernel.InvokeAsync(nameof(TimePlugin), "DayOfWeek");
+        //        var currentTimeZone = await kernel.InvokeAsync(nameof(TimePlugin), "TimeZoneName");
+
+        //        // Prompt user for input
+        //        Console.WriteLine("Enter your inquiry: ");
+        //        var prompt = Console.ReadLine();
+
+        //        // Summarize conversation
+        //        var summaryResult = await kernel.InvokeAsync(
+        //            pluginName: nameof(ConversationSummaryPlugin),
+        //            functionName: "SummarizeConversation",
+        //            arguments: new() { { "input", prompt } }
+        //        );
+
+        //        // Get conversation action items
+        //        var actionItemsResult = await kernel.InvokeAsync(
+        //            pluginName: nameof(ConversationSummaryPlugin),
+        //            functionName: "GetConversationActionItems",
+        //            arguments: new() { { "input", prompt } }
+        //        );
+
+        //        // Get conversation topics
+        //        var topicsResult = await kernel.InvokeAsync(
+        //            pluginName: nameof(ConversationSummaryPlugin),
+        //            functionName: "GetConversationTopics",
+        //            arguments: new() { { "input", prompt } }
+        //        );
+
+        //#pragma warning restore SKEXP0050
+
+        //        // Display results
+        //        Console.WriteLine("*---Summary---*");
+        //        Console.WriteLine(summaryResult);
+        //        Console.WriteLine("*---Action Items---*");
+        //        Console.WriteLine(actionItemsResult);
+        //        Console.WriteLine("*---Topics---*");
+        //        Console.WriteLine(topicsResult);
+        //        Console.WriteLine("*---Current Date and Time---*");
+        //        Console.WriteLine(currentDateTime);
+        //        Console.WriteLine(currentTimeZone);
+        //    }
