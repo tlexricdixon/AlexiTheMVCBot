@@ -1,24 +1,30 @@
 ﻿using AlexiTheMVCBot.Code;
+using AlexiTheMVCBot.Models;
 using Markdig;
-using Standard.AI.OpenAI.Models.Services.Foundations.ChatCompletions;
-using System.Globalization;
 using System.Net.Http.Json;
-using System.Text;
-using TimeZoneConverter;
+using System.Text.Json.Serialization;
 
 namespace AlexiTheMVCBot.ChatGpt
 {
-    public class OpenAIServices : IOpenAiProxy
+    public class OllamaChatService : IChatProxy
     {
-        readonly List<ChatCompletionMessage> _messages;
+        readonly List<ChatMessage> _messages;
         readonly HttpClient _httpClient;
         readonly string _model;
-        const string _botName = "Alexi";
+        readonly bool _think;
+        readonly OllamaOptions _options;
 
-        public OpenAIServices(IConfiguration configuration)
+        public OllamaChatService(IConfiguration configuration)
         {
             _model = configuration.GetValue<string>("Ollama:Model") ?? "ministral-3:8b";
             var baseUrl = configuration.GetValue<string>("Ollama:BaseUrl") ?? "http://localhost:11434";
+            _think = configuration.GetValue<bool?>("Ollama:Think") ?? false;
+            _options = new OllamaOptions
+            {
+                NumCtx = configuration.GetValue<int?>("Ollama:Options:NumCtx") ?? 4096,
+                NumPredict = configuration.GetValue<int?>("Ollama:Options:NumPredict") ?? 180,
+                Temperature = configuration.GetValue<double?>("Ollama:Options:Temperature") ?? 0.8
+            };
 
             _httpClient = new HttpClient
             {
@@ -28,57 +34,39 @@ namespace AlexiTheMVCBot.ChatGpt
             _messages = [];
         }
 
-        void StackMessages(params ChatCompletionMessage[] messages)
+        void StackMessages(params ChatMessage[] messages)
         {
             foreach (var message in messages)
             {
-                if (message.Content.Contains("I’m called ChatGPT."))
-                {
-                    message.Content = message.Content.Replace("I’m called ChatGPT.", $"I’m called {_botName}.");
-                }
-
                 _messages.Add(message);
             }
         }
 
-        public Task<ChatCompletionMessage[]> SendChatMessage(string prompt)
+        public Task<ChatMessage[]> SendChatMessage(string prompt)
         {
-            var chatMsg = new ChatCompletionMessage()
+            var chatMsg = new ChatMessage
             {
                 Content = prompt,
                 Role = "user"
             };
 
-            if (prompt.Contains(@"What time is it", StringComparison.OrdinalIgnoreCase))
-            {
-                TimeZoneInfo dallasTimeZone = TZConvert.GetTimeZoneInfo("Central Standard Time");
-                DateTime dallasTime = TimeZoneInfo.ConvertTime(DateTime.Now, dallasTimeZone);
-                Console.WriteLine("The current time in Dallas, TX is: " + dallasTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
-            }
-
             return SendChatMessage(chatMsg);
         }
 
-        async Task<ChatCompletionMessage[]> SendChatMessage(ChatCompletionMessage message)
+        async Task<ChatMessage[]> SendChatMessage(ChatMessage message)
         {
-            foreach (var x in _messages)
-            {
-                if (x.Role == _botName)
-                {
-                    x.Role = "assistant";
-                }
-            }
-
             StackMessages(message);
 
             var request = new OllamaChatRequest
             {
                 Model = _model,
                 Stream = false,
+                Think = _think,
+                Options = _options,
                 Messages = _messages
                     .Select(x => new OllamaChatMessage
                     {
-                        Role = x.Role == _botName ? "assistant" : x.Role,
+                        Role = x.Role,
                         Content = x.Content
                     })
                     .ToList()
@@ -90,29 +78,45 @@ namespace AlexiTheMVCBot.ChatGpt
             var ollamaResponse = await response.Content.ReadFromJsonAsync<OllamaChatResponse>();
             var assistantContent = ollamaResponse?.Message?.Content ?? string.Empty;
 
-            var assistantMessage = new ChatCompletionMessage
+            var assistantResponse = new ChatMessage
+            {
+                Role = "assistant",
+                Content = Markdown.ToHtml(assistantContent)
+            };
+
+            StackMessages(new ChatMessage
             {
                 Role = "assistant",
                 Content = assistantContent
-            };
+            });
 
-            string markdownResponse = assistantMessage.Content;
-            var sb = new StringBuilder();
-            sb.Append(Markdown.ToHtml(markdownResponse));
-            sb.Append(" User: ");
-            sb.Append(assistantMessage.Content);
-            assistantMessage.Content = sb.ToString();
-
-            StackMessages(assistantMessage);
-
-            return [assistantMessage];
+            return [assistantResponse];
         }
 
         sealed class OllamaChatRequest
         {
             public string Model { get; set; } = string.Empty;
             public bool Stream { get; set; }
+
+            [JsonPropertyName("think")]
+            public bool Think { get; set; }
+
+            [JsonPropertyName("options")]
+            public OllamaOptions Options { get; set; } = new();
+
             public List<OllamaChatMessage> Messages { get; set; } = [];
+        }
+
+        sealed class OllamaOptions
+        {
+            [JsonPropertyName("num_ctx")]
+            public int NumCtx { get; set; } = 4096;
+
+            [JsonPropertyName("num_predict")]
+            public int NumPredict { get; set; } = 180;
+
+            [JsonPropertyName("temperature")]
+            public double Temperature { get; set; } = 0.8;
         }
 
         sealed class OllamaChatMessage

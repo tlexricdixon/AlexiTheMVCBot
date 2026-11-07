@@ -1,19 +1,17 @@
-using AlexiTheMVCBot.ChatGpt;
+using AlexiTheMVCBot.Code;
 using AlexiTheMVCBot.Models;
 using Microsoft.AspNetCore.Mvc;
-using Standard.AI.OpenAI.Models.Services.Foundations.ChatCompletions;
 using System.Diagnostics;
 
 namespace AlexiTheMVCBot.Controllers
 {
     public class ChatController : Controller
     {
-        private readonly ILogger<ChatController> _logger;
-        private readonly OpenAIServices _openAIService;
+        private readonly IChatProxy _chatService;
 
-        public ChatController(OpenAIServices openAIService)
+        public ChatController(IChatProxy chatService)
         {
-            _openAIService = openAIService;
+            _chatService = chatService;
         }
 
         [HttpGet]
@@ -26,23 +24,21 @@ namespace AlexiTheMVCBot.Controllers
         [HttpPost]
         public async Task<IActionResult> Index(string userInput, string botName)
         {
-            // Set the bot name in session
             if (!string.IsNullOrEmpty(botName))
             {
                 HttpContext.Session.SetString("ChatbotName", botName);
             }
-            var response = await _openAIService.SendChatMessage(userInput);
-            var _message = new ChatCompletionMessage();
-            var _messages = new List<ChatCompletionMessage>();
-            foreach (var x in response)
-            {
-                if (x.Role == "assistant")
-                    _message.Role = "Alexi";
-                else _message.Role = x.Role;
-                _message.Content = x.Content;
-                _messages.Add(_message);
-            }
-            return View(_messages);
+
+            var response = await _chatService.SendChatMessage(userInput);
+            var messages = response
+                .Select(x => new ChatMessage
+                {
+                    Role = x.Role == "assistant" ? "Alexi" : x.Role,
+                    Content = x.Content
+                })
+                .ToList();
+
+            return View(messages);
         }
         public IActionResult CoinbaseChart()
         {

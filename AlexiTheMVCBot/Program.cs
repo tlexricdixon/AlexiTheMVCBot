@@ -1,4 +1,5 @@
 using AlexiTheMVCBot.ChatGpt;
+using AlexiTheMVCBot.Code;
 
 namespace AlexiTheMVCBot
 {
@@ -16,7 +17,7 @@ namespace AlexiTheMVCBot
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
             });
-            builder.Services.AddSingleton<OpenAIServices>();
+            builder.Services.AddSingleton<IChatProxy, OllamaChatService>();
 
             var app = builder.Build();
 

@@ -1,4 +1,4 @@
-﻿@model List<Standard.AI.OpenAI.Models.Services.Foundations.ChatCompletions.ChatCompletionMessage>
+﻿@model List<AlexiTheMVCBot.Models.ChatMessage>
 @{
     ViewData["Title"] = "Chat with Alexi";
 }
@@ -42,17 +42,7 @@
                         <div>
                             @foreach (var x in Model)
                             {
-                                if (x.Content.Length < 1000)
-                                {
-                                    var m = x.Content.Split("User: ");
-                                    <p id="speakingClean">@Html.Raw(@m[0])</p>
-                                    <p id="speaking" hidden="hidden" contenteditable="true">@m[1]</p>
-                                }
-                                else if (x.Content.Length > 1000)
-                                {
-                                var m = x.Content.Split("User: ");
-                                    <p id="speakingClean">@Html.Raw(@m[0])</p>
-                                }
+                                <p id="speakingClean">@Html.Raw(x.Content)</p>
                             }
                         </div>
                     }

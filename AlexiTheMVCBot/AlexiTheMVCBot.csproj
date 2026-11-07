@@ -11,9 +11,10 @@
     <PackageReference Include="Coinbase" Version="6.0.1" />
     <PackageReference Include="JsonWebToken" Version="1.9.4" />
     <PackageReference Include="Markdig" Version="0.37.0" />
-    <PackageReference Include="OpenAI" Version="1.11.0" />
-    <PackageReference Include="Standard.AI.OpenAI" Version="0.6.0" />
-    <PackageReference Include="TimeZoneConverter" Version="6.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="ChatKerel\" />
   </ItemGroup>
 
 </Project>
