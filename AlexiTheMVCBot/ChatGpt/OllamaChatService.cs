@@ -1,18 +1,21 @@
-﻿using AlexiTheMVCBot.Code;
+using AlexiTheMVCBot.Code;
 using AlexiTheMVCBot.Models;
-using Markdig;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
 namespace AlexiTheMVCBot.ChatGpt
 {
-    public class OllamaChatService : IChatProxy
+    // Scoped to a Blazor Server circuit: never share a listener's chat history globally.
+    public sealed class OllamaChatService : IChatProxy, IDisposable
     {
-        readonly List<ChatMessage> _messages;
-        readonly HttpClient _httpClient;
-        readonly string _model;
-        readonly bool _think;
-        readonly OllamaOptions _options;
+        private const int MaxInputLength = 1000;
+        private const int MaxHistoryMessages = 20;
+
+        private readonly List<ChatMessage> _messages = [];
+        private readonly HttpClient _httpClient;
+        private readonly string _model;
+        private readonly bool _think;
+        private readonly OllamaOptions _options;
 
         public OllamaChatService(IConfiguration configuration)
         {
@@ -25,37 +28,23 @@ namespace AlexiTheMVCBot.ChatGpt
                 NumPredict = configuration.GetValue<int?>("Ollama:Options:NumPredict") ?? 180,
                 Temperature = configuration.GetValue<double?>("Ollama:Options:Temperature") ?? 0.8
             };
-
             _httpClient = new HttpClient
             {
-                BaseAddress = new Uri(baseUrl)
+                BaseAddress = new Uri(baseUrl),
+                Timeout = TimeSpan.FromSeconds(90)
             };
-
-            _messages = [];
         }
 
-        void StackMessages(params ChatMessage[] messages)
+        public async Task<ChatMessage[]> SendChatMessage(string prompt)
         {
-            foreach (var message in messages)
-            {
-                _messages.Add(message);
-            }
-        }
+            if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > MaxInputLength)
+                throw new ArgumentException("Message must be between 1 and 1000 characters.", nameof(prompt));
 
-        public Task<ChatMessage[]> SendChatMessage(string prompt)
-        {
-            var chatMsg = new ChatMessage
-            {
-                Content = prompt,
-                Role = "user"
-            };
-
-            return SendChatMessage(chatMsg);
-        }
-
-        async Task<ChatMessage[]> SendChatMessage(ChatMessage message)
-        {
-            StackMessages(message);
+            var history = _messages
+                .TakeLast(MaxHistoryMessages - 1)
+                .Select(x => new OllamaChatMessage { Role = x.Role, Content = x.Content })
+                .ToList();
+            history.Add(new OllamaChatMessage { Role = "user", Content = prompt.Trim() });
 
             var request = new OllamaChatRequest
             {
@@ -63,37 +52,28 @@ namespace AlexiTheMVCBot.ChatGpt
                 Stream = false,
                 Think = _think,
                 Options = _options,
-                Messages = _messages
-                    .Select(x => new OllamaChatMessage
-                    {
-                        Role = x.Role,
-                        Content = x.Content
-                    })
-                    .ToList()
+                Messages = history
             };
 
             using var response = await _httpClient.PostAsJsonAsync("/api/chat", request);
             response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<OllamaChatResponse>();
+            var answer = result?.Message?.Content;
+            if (string.IsNullOrWhiteSpace(answer))
+                throw new InvalidOperationException("The AI service returned an empty response.");
 
-            var ollamaResponse = await response.Content.ReadFromJsonAsync<OllamaChatResponse>();
-            var assistantContent = ollamaResponse?.Message?.Content ?? string.Empty;
+            // Commit history only after success. Store raw text; Razor encodes it on display.
+            _messages.Add(new ChatMessage { Role = "user", Content = prompt.Trim() });
+            _messages.Add(new ChatMessage { Role = "assistant", Content = answer });
+            if (_messages.Count > MaxHistoryMessages)
+                _messages.RemoveRange(0, _messages.Count - MaxHistoryMessages);
 
-            var assistantResponse = new ChatMessage
-            {
-                Role = "assistant",
-                Content = Markdown.ToHtml(assistantContent)
-            };
-
-            StackMessages(new ChatMessage
-            {
-                Role = "assistant",
-                Content = assistantContent
-            });
-
-            return [assistantResponse];
+            return [new ChatMessage { Role = "assistant", Content = answer }];
         }
 
-        sealed class OllamaChatRequest
+        public void Dispose() => _httpClient.Dispose();
+
+        private sealed class OllamaChatRequest
         {
             public string Model { get; set; } = string.Empty;
             public bool Stream { get; set; }
@@ -107,7 +87,7 @@ namespace AlexiTheMVCBot.ChatGpt
             public List<OllamaChatMessage> Messages { get; set; } = [];
         }
 
-        sealed class OllamaOptions
+        private sealed class OllamaOptions
         {
             [JsonPropertyName("num_ctx")]
             public int NumCtx { get; set; } = 4096;
@@ -119,13 +99,13 @@ namespace AlexiTheMVCBot.ChatGpt
             public double Temperature { get; set; } = 0.8;
         }
 
-        sealed class OllamaChatMessage
+        private sealed class OllamaChatMessage
         {
             public string Role { get; set; } = string.Empty;
             public string Content { get; set; } = string.Empty;
         }
 
-        sealed class OllamaChatResponse
+        private sealed class OllamaChatResponse
         {
             public OllamaChatMessage? Message { get; set; }
         }
