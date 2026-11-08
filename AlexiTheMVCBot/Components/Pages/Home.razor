@@ -13,10 +13,10 @@
                         <p>Chat with Alexi · AI assistant</p>
                     </div>
                 </div>
-                <button class="chat-close" @onclick="ToggleOpen" aria-label="Close chat">×</button>
+                <button type="button" class="chat-close" @onclick="ToggleOpen" aria-label="Close chat">×</button>
             </header>
 
-            <div class="chat-body">
+            <div class="chat-body" aria-live="polite">
                 @if (messages.Count == 0)
                 {
                     <div class="chat-empty">Ask anything to get started.</div>
@@ -26,63 +26,78 @@
                     @foreach (var message in messages)
                     {
                         <article class="chat-message @(message.Role == "user" ? "from-user" : "from-bot")">
-                            @if (message.Role == "user")
-                            {
-                                <p>@message.Content</p>
-                            }
-                            else
-                            {
-                                <p>@((MarkupString)message.Content)</p>
-                            }
+                            <p>@message.Content</p>
                         </article>
                     }
+                }
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <p role="alert" class="chat-error">@errorMessage</p>
                 }
             </div>
 
             <EditForm Model="this" OnSubmit="SendMessageAsync" class="chat-input-row">
-                <InputTextArea @bind-Value="userInput" class="chat-input" placeholder="Type your message..." />
-                <button type="submit" class="chat-send" disabled="@isSending">@(isSending ? "..." : "Send")</button>
+                <InputTextArea @bind-Value="userInput" class="chat-input"
+                               placeholder="Type your message..." maxlength="1000"
+                               aria-label="Message to Alexi" />
+                <button type="submit" class="chat-send"
+                        disabled="@(isSending || string.IsNullOrWhiteSpace(userInput))">@(isSending ? "..." : "Send")</button>
             </EditForm>
         </section>
     }
 
-    <button class="chat-launcher" @onclick="ToggleOpen" aria-label="Open help chat">
+    <button type="button" class="chat-launcher" @onclick="ToggleOpen"
+            aria-label="@(isOpen ? "Hide help chat" : "Open help chat")">
         @(isOpen ? "Hide chat" : "Help")
     </button>
 </div>
 
 @code {
     private readonly List<ChatMessage> messages = [];
+    private readonly Queue<DateTimeOffset> recentRequests = new();
     private string userInput = string.Empty;
-    private bool isOpen = true;
+    private string? errorMessage;
+    private bool isOpen = false;
     private bool isSending;
 
-    private void ToggleOpen()
-    {
-        isOpen = !isOpen;
-    }
+    private void ToggleOpen() => isOpen = !isOpen;
 
     private async Task SendMessageAsync()
     {
-        if (string.IsNullOrWhiteSpace(userInput) || isSending)
+        if (isSending || string.IsNullOrWhiteSpace(userInput))
+            return;
+
+        errorMessage = null;
+        var prompt = userInput.Trim();
+        if (prompt.Length > 1000)
         {
+            errorMessage = "Please keep your message under 1,000 characters.";
             return;
         }
 
-        isSending = true;
-        var prompt = userInput.Trim();
-        userInput = string.Empty;
-
-        messages.Add(new ChatMessage
+        var now = DateTimeOffset.UtcNow;
+        while (recentRequests.Count > 0 && now - recentRequests.Peek() > TimeSpan.FromMinutes(1))
+            recentRequests.Dequeue();
+        if (recentRequests.Count >= 8)
         {
-            Role = "user",
-            Content = prompt
-        });
+            errorMessage = "Too many messages. Please try again in a minute.";
+            return;
+        }
+        recentRequests.Enqueue(now);
+
+        isSending = true;
+        userInput = string.Empty;
+        messages.Add(new ChatMessage { Role = "user", Content = prompt });
 
         try
         {
             var response = await ChatProxy.SendChatMessage(prompt);
             messages.AddRange(response);
+        }
+        catch (Exception)
+        {
+            // Never expose runtime, network or Ollama error details to public visitors.
+            errorMessage = "Alexi couldn't respond right now. Please try again shortly.";
         }
         finally
         {
