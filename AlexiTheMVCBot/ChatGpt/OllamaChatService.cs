@@ -35,7 +35,7 @@ namespace AlexiTheMVCBot.ChatGpt
             };
         }
 
-        public async Task<ChatMessage[]> SendChatMessage(string prompt, string djId)
+        public async Task<ChatMessage[]> SendChatMessage(string prompt, string djId = "kathleen")
         {
             if (string.IsNullOrWhiteSpace(prompt) || prompt.Length > MaxInputLength)
                 throw new ArgumentException("Message must be between 1 and 1000 characters.", nameof(prompt));
