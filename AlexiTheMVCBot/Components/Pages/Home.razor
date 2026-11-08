@@ -1,29 +1,41 @@
 @page "/"
+@using AlexiTheMVCBot.Djs
 @inject IChatProxy ChatProxy
 
 <div class="chat-widget">
     @if (isOpen)
     {
-        <section class="chat-panel" aria-label="Alexi help chat">
+        <section class="chat-panel" aria-label="Private AI DJ chat">
             <header class="chat-header">
                 <div class="chat-title-wrap">
-                    <img class="chat-avatar" src="img/androgynous-avatar-non-binary-queer-person.jpg" alt="Alexi AI avatar" />
+                    <img class="chat-avatar" src="@Selected.ImagePath"
+                         onerror="this.onerror=null;this.src='img/androgynous-avatar-non-binary-queer-person.jpg';"
+                         alt="@Selected.Name avatar" />
                     <div>
-                        <h1>Need help?</h1>
-                        <p>Chat with Alexi · AI assistant</p>
+                        <h1>@Selected.Name</h1>
+                        <p>@Selected.Role · Fictional AI DJ</p>
                     </div>
                 </div>
                 <button type="button" class="chat-close" @onclick="ToggleOpen" aria-label="Close chat">×</button>
             </header>
 
-            <div class="chat-body" aria-live="polite">
-                @if (messages.Count == 0)
+            <label class="dj-picker-label" for="dj-picker">Talk privately with</label>
+            <select id="dj-picker" class="dj-picker" value="@selectedDjId" @onchange="SelectDj" disabled="@isSending">
+                @foreach (var dj in DjProfiles.All)
                 {
-                    <div class="chat-empty">Ask anything to get started.</div>
+                    <option value="@dj.Id">@dj.Name — @dj.Role</option>
+                }
+            </select>
+            <p class="dj-bio">@Selected.Bio</p>
+
+            <div class="chat-body" aria-live="polite">
+                @if (Messages.Count == 0)
+                {
+                    <div class="chat-empty">Say hello to @Selected.Name.</div>
                 }
                 else
                 {
-                    @foreach (var message in messages)
+                    @foreach (var message in Messages)
                     {
                         <article class="chat-message @(message.Role == "user" ? "from-user" : "from-bot")">
                             <p>@message.Content</p>
@@ -39,28 +51,46 @@
             <EditForm Model="this" OnSubmit="SendMessageAsync" class="chat-input-row">
                 <InputTextArea @bind-Value="userInput" class="chat-input"
                                placeholder="Type your message..." maxlength="1000"
-                               aria-label="Message to Alexi" />
-                <button type="submit" class="chat-send"
-                        disabled="@(isSending || string.IsNullOrWhiteSpace(userInput))">@(isSending ? "..." : "Send")</button>
+                               aria-label="Message to selected DJ" />
+                <button type="submit" class="chat-send" disabled="@isSending">@(isSending ? "..." : "Send")</button>
             </EditForm>
         </section>
     }
 
     <button type="button" class="chat-launcher" @onclick="ToggleOpen"
-            aria-label="@(isOpen ? "Hide help chat" : "Open help chat")">
-        @(isOpen ? "Hide chat" : "Help")
+            aria-label="@(isOpen ? "Hide DJ chat" : "Open DJ chat")">
+        @(isOpen ? "Hide chat" : "Talk to a DJ")
     </button>
 </div>
 
 @code {
-    private readonly List<ChatMessage> messages = [];
+    private readonly Dictionary<string, List<ChatMessage>> conversations = new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<DateTimeOffset> recentRequests = new();
+    private string selectedDjId = "kathleen";
     private string userInput = string.Empty;
     private string? errorMessage;
-    private bool isOpen = false;
+    private bool isOpen;
     private bool isSending;
 
+    private DjProfile Selected => DjProfiles.Get(selectedDjId);
+    private List<ChatMessage> Messages
+    {
+        get
+        {
+            if (!conversations.TryGetValue(selectedDjId, out var messages))
+                conversations[selectedDjId] = messages = [];
+            return messages;
+        }
+    }
+
     private void ToggleOpen() => isOpen = !isOpen;
+
+    private void SelectDj(ChangeEventArgs args)
+    {
+        selectedDjId = DjProfiles.Get(args.Value?.ToString()).Id;
+        userInput = string.Empty;
+        errorMessage = null;
+    }
 
     private async Task SendMessageAsync()
     {
@@ -87,17 +117,18 @@
 
         isSending = true;
         userInput = string.Empty;
-        messages.Add(new ChatMessage { Role = "user", Content = prompt });
+        var djId = selectedDjId;
+        Messages.Add(new ChatMessage { Role = "user", Content = prompt });
 
         try
         {
-            var response = await ChatProxy.SendChatMessage(prompt);
-            messages.AddRange(response);
+            var response = await ChatProxy.SendChatMessage(prompt, djId);
+            conversations[djId].AddRange(response);
         }
         catch (Exception)
         {
-            // Never expose runtime, network or Ollama error details to public visitors.
-            errorMessage = "Alexi couldn't respond right now. Please try again shortly.";
+            // Never expose Ollama or infrastructure details to public visitors.
+            errorMessage = "Your DJ couldn't respond right now. Please try again shortly.";
         }
         finally
         {
