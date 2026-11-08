@@ -4,6 +4,6 @@ namespace AlexiTheMVCBot.Code
 {
     public interface IChatProxy
     {
-        Task<ChatMessage[]> SendChatMessage(string prompt, string djId);
+        Task<ChatMessage[]> SendChatMessage(string prompt, string djId = "kathleen");
     }
 }
