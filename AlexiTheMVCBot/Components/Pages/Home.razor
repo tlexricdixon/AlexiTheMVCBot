@@ -1,0 +1,92 @@
+@page "/"
+@inject IChatProxy ChatProxy
+
+<div class="chat-widget">
+    @if (isOpen)
+    {
+        <section class="chat-panel" aria-label="Alexi help chat">
+            <header class="chat-header">
+                <div class="chat-title-wrap">
+                    <img class="chat-avatar" src="img/androgynous-avatar-non-binary-queer-person.jpg" alt="Alexi AI avatar" />
+                    <div>
+                        <h1>Need help?</h1>
+                        <p>Chat with Alexi · AI assistant</p>
+                    </div>
+                </div>
+                <button class="chat-close" @onclick="ToggleOpen" aria-label="Close chat">×</button>
+            </header>
+
+            <div class="chat-body">
+                @if (messages.Count == 0)
+                {
+                    <div class="chat-empty">Ask anything to get started.</div>
+                }
+                else
+                {
+                    @foreach (var message in messages)
+                    {
+                        <article class="chat-message @(message.Role == "user" ? "from-user" : "from-bot")">
+                            @if (message.Role == "user")
+                            {
+                                <p>@message.Content</p>
+                            }
+                            else
+                            {
+                                <p>@((MarkupString)message.Content)</p>
+                            }
+                        </article>
+                    }
+                }
+            </div>
+
+            <EditForm Model="this" OnSubmit="SendMessageAsync" class="chat-input-row">
+                <InputTextArea @bind-Value="userInput" class="chat-input" placeholder="Type your message..." />
+                <button type="submit" class="chat-send" disabled="@isSending">@(isSending ? "..." : "Send")</button>
+            </EditForm>
+        </section>
+    }
+
+    <button class="chat-launcher" @onclick="ToggleOpen" aria-label="Open help chat">
+        @(isOpen ? "Hide chat" : "Help")
+    </button>
+</div>
+
+@code {
+    private readonly List<ChatMessage> messages = [];
+    private string userInput = string.Empty;
+    private bool isOpen = true;
+    private bool isSending;
+
+    private void ToggleOpen()
+    {
+        isOpen = !isOpen;
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(userInput) || isSending)
+        {
+            return;
+        }
+
+        isSending = true;
+        var prompt = userInput.Trim();
+        userInput = string.Empty;
+
+        messages.Add(new ChatMessage
+        {
+            Role = "user",
+            Content = prompt
+        });
+
+        try
+        {
+            var response = await ChatProxy.SendChatMessage(prompt);
+            messages.AddRange(response);
+        }
+        finally
+        {
+            isSending = false;
+        }
+    }
+}

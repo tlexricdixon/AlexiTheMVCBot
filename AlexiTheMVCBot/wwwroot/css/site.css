@@ -8,15 +8,151 @@ html {
   }
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
-}
-
 body {
-  margin-bottom: 60px;
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: #f4f2ff;
+}
+
+.page-shell {
+  min-height: 100vh;
+}
+
+.chat-widget {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1000;
+}
+
+.chat-launcher {
+  border: 0;
+  border-radius: 999px;
+  background: #5b3cc4;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.75rem 1.1rem;
+  box-shadow: 0 10px 28px rgba(33, 18, 84, 0.35);
+}
+
+.chat-panel {
+  width: min(360px, calc(100vw - 2rem));
+  height: 540px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 45px rgba(26, 20, 48, 0.25);
+  margin-bottom: 0.75rem;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+
+.chat-header {
+  background: linear-gradient(135deg, #6948d3, #5b3cc4);
+  color: #fff;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.chat-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.chat-header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.chat-header p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.chat-close {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.chat-body {
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.chat-empty {
+  margin: auto;
+  color: #777;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  line-height: 1.35;
+}
+
+.chat-message p {
+  margin: 0;
+}
+
+.chat-message.from-user {
+  align-self: end;
+  background: #5b3cc4;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.from-bot {
+  align-self: start;
+  background: #f1efff;
+  color: #261d49;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-input-row {
+  border-top: 1px solid #ece9fb;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+}
+
+.chat-input {
+  resize: none;
+  min-height: 44px;
+  max-height: 100px;
+  border: 1px solid #d8d1f7;
+  border-radius: 10px;
+  padding: 0.5rem;
+}
+
+.chat-send {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 0.9rem;
+  background: #5b3cc4;
+  color: #fff;
+  font-weight: 600;
+}
+
+.chat-send:disabled {
+  opacity: 0.7;
 }
