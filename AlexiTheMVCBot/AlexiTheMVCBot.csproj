@@ -10,7 +10,6 @@
   <ItemGroup>
     <PackageReference Include="Coinbase" Version="6.0.1" />
     <PackageReference Include="JsonWebToken" Version="1.9.4" />
-    <PackageReference Include="Markdig" Version="0.37.0" />
   </ItemGroup>
 
   <ItemGroup>
