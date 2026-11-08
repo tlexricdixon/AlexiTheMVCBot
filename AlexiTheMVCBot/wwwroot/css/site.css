@@ -156,3 +156,15 @@ body {
 .chat-send:disabled {
   opacity: 0.7;
 }
+
+/* Preserve line breaks without injecting HTML from model output. */
+.chat-message p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-error {
+  color: #9b1c1c;
+  font-size: 0.875rem;
+  margin: 0;
+}
