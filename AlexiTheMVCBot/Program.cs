@@ -13,7 +13,9 @@ namespace AlexiTheMVCBot
             builder.Services
                 .AddRazorComponents()
                 .AddInteractiveServerComponents();
-            builder.Services.AddSingleton<IChatProxy, OllamaChatService>();
+
+            // One chat service (and history) per Blazor Server circuit, not per application.
+            builder.Services.AddScoped<IChatProxy, OllamaChatService>();
 
             var app = builder.Build();
 
