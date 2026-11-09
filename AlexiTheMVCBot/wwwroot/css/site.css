@@ -163,10 +163,33 @@ body {
   overflow-wrap: anywhere;
 }
 
+.chat-message.chat-pending-user {
+  opacity: 0.78;
+}
+
+.chat-message.chat-pending-bot {
+  border: 1px dashed #cbc0f7;
+}
+
+.chat-feedback {
+  min-height: 1.35rem;
+  margin: 0 .85rem;
+  font-size: 0.78rem;
+  color: #514870;
+}
+
 .chat-error {
   color: #9b1c1c;
   font-size: 0.875rem;
+  margin: 0 .85rem .45rem;
+}
+
+.chat-input-label {
+  grid-column: 1 / -1;
   margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #372c67;
 }
 
 /* Eight selectable fictional DJs: private conversation remains inside the popup. */
@@ -192,7 +215,7 @@ body {
   color: #514870;
 }
 .chat-panel {
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto auto;
 }
 .chat-launcher:focus-visible,
 .chat-close:focus-visible,
@@ -201,4 +224,17 @@ body {
 .chat-input:focus-visible {
   outline: 3px solid #e3b54e;
   outline-offset: 2px;
+}
+
+@media (max-width: 540px) {
+  .chat-widget {
+    right: 0.7rem;
+    left: 0.7rem;
+    bottom: 0.7rem;
+  }
+
+  .chat-panel {
+    width: 100%;
+    height: min(78vh, 540px);
+  }
 }
