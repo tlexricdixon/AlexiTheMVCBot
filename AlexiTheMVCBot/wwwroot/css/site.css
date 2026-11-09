@@ -238,3 +238,36 @@ body {
     height: min(78vh, 540px);
   }
 }
+
+
+/* Compact DJ portraits in the shared group conversation. */
+.dj-group-message {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+}
+.dj-group-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #5b3cc4;
+  color: #fff;
+  font-weight: 700;
+}
+.dj-group-avatar img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dj-group-message-body {
+  flex: 1;
+  min-width: 0;
+}
