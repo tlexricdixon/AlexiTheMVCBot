@@ -1,5 +1,6 @@
 @page "/group"
 @using AlexiTheMVCBot.ChatGpt
+@using AlexiTheMVCBot.Djs
 @implements IDisposable
 @inject DjGroupRoom Room
 
@@ -33,8 +34,18 @@ else
         @foreach (var line in lines)
         {
             <article class="card mb-2 p-3">
-                <strong>@line.Speaker</strong>
-                <p class="mb-0" style="white-space: pre-wrap">@line.Text</p>
+                <div class="dj-group-message">
+                    <div class="dj-group-avatar" aria-hidden="true">
+                        <span>@line.Speaker[..1]</span>
+                        <img src="@DjProfiles.Get(line.DjId).ImagePath"
+                             alt="" loading="lazy"
+                             onerror="this.style.display='none'" />
+                    </div>
+                    <div class="dj-group-message-body">
+                        <strong>@line.Speaker</strong>
+                        <p class="mb-0" style="white-space: pre-wrap; overflow-wrap: anywhere">@line.Text</p>
+                    </div>
+                </div>
             </article>
         }
     </section>
