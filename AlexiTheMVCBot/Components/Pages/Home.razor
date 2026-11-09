@@ -1,4 +1,6 @@
 @page "/"
+@implements IDisposable
+@using AlexiTheMVCBot.ChatGpt
 @using AlexiTheMVCBot.Djs
 @inject IChatProxy ChatProxy
 
@@ -7,7 +9,7 @@
 <div class="chat-widget">
     @if (isOpen)
     {
-        <section class="chat-panel" aria-label="Private AI DJ chat">
+        <section class="chat-panel" aria-label="Private AI DJ chat" aria-busy="@isSending">
             <header class="chat-header">
                 <div class="chat-title-wrap">
                     <img class="chat-avatar" src="@Selected.ImagePath"
@@ -31,7 +33,7 @@
             <p class="dj-bio">@Selected.Bio</p>
 
             <div class="chat-body" aria-live="polite">
-                @if (Messages.Count == 0)
+                @if (Messages.Count == 0 && string.IsNullOrWhiteSpace(pendingPrompt))
                 {
                     <div class="chat-empty">Say hello to @Selected.Name.</div>
                 }
@@ -44,64 +46,129 @@
                         </article>
                     }
                 }
-                @if (!string.IsNullOrEmpty(errorMessage))
+
+                @if (!string.IsNullOrWhiteSpace(pendingPrompt))
                 {
-                    <p role="alert" class="chat-error">@errorMessage</p>
+                    <article class="chat-message from-user chat-pending-user">
+                        <p>@pendingPrompt</p>
+                    </article>
+                    <article class="chat-message from-bot chat-pending-bot" aria-live="polite">
+                        <p>@Selected.Name is thinking…</p>
+                    </article>
                 }
             </div>
 
+            <div class="chat-feedback" aria-live="polite" role="status">@statusMessage</div>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <p role="alert" aria-live="assertive" class="chat-error">@errorMessage</p>
+            }
+
             <EditForm Model="this" OnSubmit="SendMessageAsync" class="chat-input-row">
-                <InputTextArea @bind-Value="userInput" class="chat-input"
-                               placeholder="Type your message..." maxlength="1000"
-                               aria-label="Message to selected DJ" />
-                <button type="submit" class="chat-send" disabled="@isSending">@(isSending ? "..." : "Send")</button>
+                <label class="chat-input-label" for="chat-input">Message to @Selected.Name</label>
+                <textarea id="chat-input"
+                          @bind="userInput"
+                          class="chat-input"
+                          placeholder="Type your message..."
+                          maxlength="1000"
+                          disabled="@isSending"
+                          @ref="inputRef"></textarea>
+                <button type="submit" class="chat-send" disabled="@isSending">@(isSending ? "Sending..." : "Send")</button>
             </EditForm>
         </section>
     }
 
     <button type="button" class="chat-launcher" @onclick="ToggleOpen"
+            @ref="launcherRef"
+            aria-expanded="@isOpen"
             aria-label="@(isOpen ? "Hide DJ chat" : "Open DJ chat")">
         @(isOpen ? "Hide chat" : "Talk to a DJ")
     </button>
 </div>
 
 @code {
-    private readonly Dictionary<string, List<ChatMessage>> conversations = new(StringComparer.OrdinalIgnoreCase);
+    private const int MaxInputLength = 1000;
+    private const int MaxRequestsPerMinute = 8;
+    private const int ConversationDisplayLimit = 40;
+    private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(45);
+
     private readonly Queue<DateTimeOffset> recentRequests = new();
+    private readonly CancellationTokenSource disposeCts = new();
+    private CancellationTokenSource? sendCts;
+
     private string selectedDjId = "kathleen";
     private string userInput = string.Empty;
+    private string? pendingPrompt;
     private string? errorMessage;
+    private string? statusMessage;
     private bool isOpen;
     private bool isSending;
+    private bool focusInputOnOpen;
+    private bool focusLauncherOnClose;
+    private ElementReference launcherRef;
+    private ElementReference inputRef;
 
     private DjProfile Selected => DjProfiles.Get(selectedDjId);
-    private List<ChatMessage> Messages
+    private IReadOnlyList<ChatMessage> Messages => ChatProxy.GetConversation(selectedDjId, ConversationDisplayLimit);
+
+    private async Task ToggleOpen()
     {
-        get
+        isOpen = !isOpen;
+        if (isOpen)
         {
-            if (!conversations.TryGetValue(selectedDjId, out var messages))
-                conversations[selectedDjId] = messages = [];
-            return messages;
+            focusInputOnOpen = true;
+        }
+        else
+        {
+            focusLauncherOnClose = true;
+            sendCts?.Cancel();
+            pendingPrompt = null;
+            statusMessage = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusInputOnOpen)
+        {
+            focusInputOnOpen = false;
+            await inputRef.FocusAsync();
+        }
+
+        if (focusLauncherOnClose)
+        {
+            focusLauncherOnClose = false;
+            await launcherRef.FocusAsync();
         }
     }
 
-    private void ToggleOpen() => isOpen = !isOpen;
-
     private void SelectDj(ChangeEventArgs args)
     {
+        if (isSending)
+            return;
+
         selectedDjId = DjProfiles.Get(args.Value?.ToString()).Id;
         userInput = string.Empty;
+        pendingPrompt = null;
         errorMessage = null;
+        statusMessage = null;
     }
 
     private async Task SendMessageAsync()
     {
-        if (isSending || string.IsNullOrWhiteSpace(userInput))
+        if (isSending)
+            return;
+
+        var prompt = userInput.Trim();
+        if (string.IsNullOrWhiteSpace(prompt))
             return;
 
         errorMessage = null;
-        var prompt = userInput.Trim();
-        if (prompt.Length > 1000)
+        statusMessage = null;
+
+        if (prompt.Length > MaxInputLength)
         {
             errorMessage = "Please keep your message under 1,000 characters.";
             return;
@@ -110,31 +177,58 @@
         var now = DateTimeOffset.UtcNow;
         while (recentRequests.Count > 0 && now - recentRequests.Peek() > TimeSpan.FromMinutes(1))
             recentRequests.Dequeue();
-        if (recentRequests.Count >= 8)
+
+        if (recentRequests.Count >= MaxRequestsPerMinute)
         {
             errorMessage = "Too many messages. Please try again in a minute.";
             return;
         }
+
         recentRequests.Enqueue(now);
 
         isSending = true;
-        userInput = string.Empty;
         var djId = selectedDjId;
-        Messages.Add(new ChatMessage { Role = "user", Content = prompt });
+        pendingPrompt = prompt;
+        statusMessage = $"Waiting for {Selected.Name}...";
+
+        sendCts?.Dispose();
+        sendCts = CancellationTokenSource.CreateLinkedTokenSource(disposeCts.Token);
+        sendCts.CancelAfter(SendTimeout);
 
         try
         {
-            var response = await ChatProxy.SendChatMessage(prompt, djId);
-            conversations[djId].AddRange(response);
+            await ChatProxy.SendChatMessage(prompt, djId, sendCts.Token);
+            if (selectedDjId == djId)
+                userInput = string.Empty;
+        }
+        catch (ChatRequestFailedException ex)
+        {
+            userInput = prompt;
+            errorMessage = ex.UserMessage;
+        }
+        catch (ArgumentException)
+        {
+            userInput = prompt;
+            errorMessage = "Please keep your message under 1,000 characters.";
         }
         catch (Exception)
         {
-            // Never expose Ollama or infrastructure details to public visitors.
+            userInput = prompt;
             errorMessage = "Your DJ couldn't respond right now. Please try again shortly.";
         }
         finally
         {
+            pendingPrompt = null;
+            statusMessage = null;
             isSending = false;
         }
+    }
+
+    public void Dispose()
+    {
+        disposeCts.Cancel();
+        sendCts?.Cancel();
+        sendCts?.Dispose();
+        disposeCts.Dispose();
     }
 }
