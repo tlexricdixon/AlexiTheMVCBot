@@ -1,0 +1,85 @@
+@page "/group"
+@using AlexiTheMVCBot.ChatGpt
+@implements IDisposable
+@inject DjGroupRoom Room
+
+<PageTitle>DJ Group Rehearsal</PageTitle>
+<h1>Aneed DJ group rehearsal</h1>
+<p>Eight fictional DJs, one shared studio conversation. Development-only experiment; no listeners or database yet.</p>
+
+@if (!Room.Enabled)
+{
+    <p role="alert">This rehearsal is available only in the development environment.</p>
+}
+else
+{
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary me-2" @onclick="RunAsync" disabled="@busy">
+            @(busy ? "DJs are talking…" : "Let the DJs talk (3 turns)")
+        </button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="Reset" disabled="@busy">
+            Start over
+        </button>
+    </div>
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <p role="alert" class="text-danger">@error</p>
+    }
+    <section aria-label="Shared DJ studio conversation" aria-live="polite" class="container">
+        @if (lines.Count == 0)
+        {
+            <p>Hit the button and Kathleen, Lexi, Vesper and the others will begin a studio conversation.</p>
+        }
+        @foreach (var line in lines)
+        {
+            <article class="card mb-2 p-3">
+                <strong>@line.Speaker</strong>
+                <p class="mb-0" style="white-space: pre-wrap">@line.Text</p>
+            </article>
+        }
+    </section>
+}
+
+@code {
+    private IReadOnlyList<DjGroupRoom.GroupLine> lines = [];
+    private bool busy;
+    private string? error;
+
+    protected override void OnInitialized()
+    {
+        Room.Changed += OnRoomChanged;
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        lines = Room.Snapshot();
+        busy = Room.IsRunning;
+    }
+
+    private void OnRoomChanged() => _ = InvokeAsync(() =>
+    {
+        Refresh();
+        StateHasChanged();
+    });
+
+    private async Task RunAsync()
+    {
+        error = null;
+        try { await Room.RunThreeTurnsAsync(); }
+        catch (Exception)
+        {
+            error = "The DJs couldn't finish this rehearsal. Check the server logs and try again.";
+        }
+        finally { Refresh(); }
+    }
+
+    private void Reset()
+    {
+        Room.Reset();
+        Refresh();
+        error = null;
+    }
+
+    public void Dispose() => Room.Changed -= OnRoomChanged;
+}
