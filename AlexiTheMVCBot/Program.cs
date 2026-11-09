@@ -17,6 +17,9 @@ namespace AlexiTheMVCBot
             // One chat service (and history) per Blazor Server circuit, not per application.
             builder.Services.AddScoped<IChatProxy, OllamaChatService>();
 
+            // One in-process room shared by development browser sessions only.
+            builder.Services.AddSingleton<DjGroupRoom>();
+
             var app = builder.Build();
 
             if (!app.Environment.IsDevelopment())
